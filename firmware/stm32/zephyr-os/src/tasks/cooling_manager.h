@@ -1,14 +1,16 @@
 /*
- * cooling_manager.h — Cooling Manager: PWM del ventilador, failsafe
- *
- * Cada módulo de tasks/ expone únicamente una función de inicialización (si la
- * necesita); el hilo en sí se registra de forma estática en el .c con
- * K_THREAD_DEFINE, por lo que normalmente no hay más API pública que exponer aquí.
+ * cooling_manager.h — Determinación de umbral térmico + control PWM del ventilador
  */
 
 #ifndef COOLING_MANAGER_H
 #define COOLING_MANAGER_H
 
-void cooling_manager_init(void);
+#include <stdbool.h>
+
+/*
+ * Verifica que el dispositivo PWM esté listo. Se llama internamente desde el
+ * propio hilo al arrancar (no requiere ser invocada desde main.c).
+ */
+bool cooling_manager_init(void);
 
 #endif /* COOLING_MANAGER_H */

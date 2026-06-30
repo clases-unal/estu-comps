@@ -111,13 +111,18 @@ firmware/stm32/
 
 | Periférico | Función | Pin(es) propuestos | Estado |
 |---|---|---|---|
-| ADC1 | Lectura termistor NTC | — | Pendiente |
+| ADC1 canal 5 | Lectura termistor NTC | PA0 | **Confirmado** — ver `zephyr/boards/nucleo_l476rg.overlay` |
 | TIMx (PWM) | Control velocidad ventilador | — | Pendiente |
 | USART (UART) | Comunicación con ESP32 | — | Pendiente |
-| I2C1 | Pantalla OLED | — | Pendiente |
+| I2C1 | Pantalla OLED | PB6/PB7 (reservado, no implementado aún) | Pendiente |
 | GPIO ISR | Pulsador físico | — | Pendiente |
 | GPIO x6 | LEDs de estado (Bloque A + Bloque B) | — | Pendiente |
 | GPIO matricial | Teclado 4x4 (4 filas + 4 columnas) | — | Pendiente |
+
+> **Nota de circuito sin confirmar:** la conversión en `ntc_sensor.c` asume que el
+> NTC está conectado entre VDD y el nodo ADC (PA0), con la resistencia fija de 10kΩ
+> entre PA0 y GND. Si el cableado real es al revés, hay que invertir la fórmula —
+> ver comentario "TOPOLOGÍA A / TOPOLOGÍA B" en ese archivo.
 
 ---
 
