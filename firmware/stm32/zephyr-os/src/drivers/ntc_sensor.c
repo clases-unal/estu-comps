@@ -51,30 +51,31 @@ static struct adc_sequence sequence = {
 
 bool ntc_sensor_init(void)
 {
+	LOG_INF("ntc_sensor_init: device ptr=%p, ready=%d",
+		(void *)adc_channel.dev,
+		adc_is_ready_dt(&adc_channel));
+
 	if (!adc_is_ready_dt(&adc_channel)) {
-		LOG_ERR("ADC channel not ready — revisar overlay nucleo_l476rg.overlay");
+		LOG_ERR("ADC device NO LISTO. Verificar overlay y CONFIG_ADC=y en prj.conf");
+		k_msleep(100);
 		return false;
 	}
 
 	int err = adc_channel_setup_dt(&adc_channel);
 	if (err != 0) {
-		LOG_ERR("adc_channel_setup_dt failed: %d", err);
+		LOG_ERR("adc_channel_setup_dt FALLO: err=%d", err);
+		k_msleep(100);
 		return false;
 	}
 
-	/*
-	 * adc_sequence_init_dt() es la forma recomendada por Zephyr de poblar
-	 * adc_sequence a partir de un adc_dt_spec — configura .channels,
-	 * .resolution y .oversampling automáticamente, evitando errores manuales
-	 * como dejar .channels en 0 (causa de "No channels selected").
-	 */
 	err = adc_sequence_init_dt(&adc_channel, &sequence);
 	if (err != 0) {
-		LOG_ERR("adc_sequence_init_dt failed: %d", err);
+		LOG_ERR("adc_sequence_init_dt FALLO: err=%d", err);
+		k_msleep(100);
 		return false;
 	}
 
-	LOG_INF("ADC listo: channel_id=%d resolution=%d sequence.channels=0x%x",
+	LOG_INF("ADC OK: channel_id=%d resolution=%d sequence.channels=0x%08x",
 		adc_channel.channel_id, adc_channel.resolution, sequence.channels);
 
 	return true;
@@ -93,20 +94,21 @@ bool ntc_sensor_read_celsius(float *out_temperature)
 		return false;
 	}
 
-	int32_t raw = sample_buffer;
-	int32_t mv = raw;
-
-	err = adc_raw_to_millivolts_dt(&adc_channel, &mv);
-	if (err != 0) {
-		LOG_ERR("adc_raw_to_millivolts_dt failed: %d", err);
-		return false;
-	}
-
-	float v_adc = mv / 1000.0f;
+	/*
+	 * Conversión manual raw → voltaje.
+	 * El driver STM32 de Zephyr requiere ADC_REF_INTERNAL en el overlay, pero
+	 * nuestro divisor NTC está alimentado por VDD (3.3V). Como conocemos VDD y
+	 * la resolución (12 bits → 0-4095), convertimos directamente:
+	 *   v_adc = (raw / 4095.0) * VDD
+	 * Esto es correcto para un divisor resistivo referenciado a VDD — no usamos
+	 * adc_raw_to_millivolts_dt porque asumiría la referencia interna (~1.21V).
+	 */
+	float v_adc = ((float)sample_buffer / 4095.0f) * VDD_VOLTS;
 
 	/* Evitar división por cero / valores absurdos si el ADC satura */
 	if (v_adc <= 0.01f || v_adc >= (VDD_VOLTS - 0.01f)) {
-		LOG_WRN("Lectura ADC fuera de rango fisico (%.3f V) — posible falla NTC", v_adc);
+		LOG_WRN("Lectura ADC fuera de rango fisico (%.3f V) — posible falla NTC",
+			(double)v_adc);
 		return false;
 	}
 
