@@ -62,7 +62,15 @@
 
 	/* Se reescribió este bloque para exponer cada pin del teclado como un nodo
 	 * independiente con etiqueta, que es lo que el driver espera al usar
-	 * DT_NODELABEL(row_0), DT_NODELABEL(col_0), etc. */
+	 * DT_NODELABEL(row_0), DT_NODELABEL(col_0), etc.
+	 *
+	 * Mapeo físico actual:
+	 * - Filas: PC0, PC1, PC2, PC3
+	 * - Columnas: PC4, PC5, PC6, PC7
+	 *
+	 * Si cambias estos pines, actualiza solo este overlay.
+	 * El código del driver ya consume los nodos DT y no requiere modificaciones.
+	 */
 	keypad_rows {
 		compatible = "gpio-keys";
 		row_0: row_0 { gpios = <&gpioc 0 GPIO_ACTIVE_LOW>; };
@@ -128,7 +136,14 @@
 };
 
 &usart1 {
-	/* Los pines de USART1 ya están configurados en el base. No tocamos nada. */
+	/* UART1 se usa en este firmware para la comunicación con el ESP32.
+	 * En la placa Nucleo-L476RG, USART1 está mapeado por defecto a PA9 (TX)
+	 * y PA10 (RX). Si decides mover la conexión al ESP32, cambia estos pines
+	 * aquí y asegúrate de que el dispositivo siga llamándose "usart1".
+	 */
+	pinctrl-0 = <&usart1_tx_pa9 &usart1_rx_pa10>;
+	pinctrl-names = "default";
+	status = "okay";
 };
 
 &i2c1 {

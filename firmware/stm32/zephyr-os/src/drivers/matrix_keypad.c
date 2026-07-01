@@ -3,26 +3,38 @@
  *
  * Técnica: activar una fila a la vez (LOW), leer todas las columnas.
  * Las columnas tienen pull-up interno → reposo en HIGH, presionado en LOW.
+ *
+ * El teclado se define desde DeviceTree.
+ * - Filas: DT_NODELABEL(row_0..row_3)
+ * - Columnas: DT_NODELABEL(col_0..col_3)
+ *
+ * Si cambias el cableado del teclado, actualiza solo el overlay
+ * zephyr/boards/nucleo_l476rg.overlay. El código del driver no necesita
+ * cambios adicionales.
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/devicetree/gpio.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log.h>
 #include "matrix_keypad.h"
 
-/* Para este build se evita la dependencia del DeviceTree en el teclado y se
- * configura el GPIO del STM32 directamente por puerto/pin. Este cambio permite
- * que la compilación avance y conserva la lógica del escaneo. */
 #define ROWS 4
 #define COLS 4
 
-struct keypad_pin {
-	const struct device *port;
-	uint32_t pin;
+static const struct gpio_dt_spec row_pins[ROWS] = {
+	GPIO_DT_SPEC_GET(DT_NODELABEL(row_0), gpios),
+	GPIO_DT_SPEC_GET(DT_NODELABEL(row_1), gpios),
+	GPIO_DT_SPEC_GET(DT_NODELABEL(row_2), gpios),
+	GPIO_DT_SPEC_GET(DT_NODELABEL(row_3), gpios),
 };
 
-static struct keypad_pin row_pins[ROWS];
-static struct keypad_pin col_pins[COLS];
+static const struct gpio_dt_spec col_pins[COLS] = {
+	GPIO_DT_SPEC_GET(DT_NODELABEL(col_0), gpios),
+	GPIO_DT_SPEC_GET(DT_NODELABEL(col_1), gpios),
+	GPIO_DT_SPEC_GET(DT_NODELABEL(col_2), gpios),
+	GPIO_DT_SPEC_GET(DT_NODELABEL(col_3), gpios),
+};
 
 LOG_MODULE_REGISTER(matrix_keypad, LOG_LEVEL_WRN);
 
@@ -33,44 +45,24 @@ static const char key_map[ROWS][COLS] = {
 	{'*', '0', '#', 'D'},
 };
 
-static void keypad_pin_init_layout(void)
-{
-	const struct device *gpio_port = device_get_binding("GPIOC");
-	if (!gpio_port) {
-		return;
-	}
-
-	for (int r = 0; r < ROWS; r++) {
-		row_pins[r].port = gpio_port;
-		row_pins[r].pin = r;
-	}
-
-	for (int c = 0; c < COLS; c++) {
-		col_pins[c].port = gpio_port;
-		col_pins[c].pin = c + 4U;
-	}
-}
-
 bool matrix_keypad_init(void)
 {
-	keypad_pin_init_layout();
-
 	for (int r = 0; r < ROWS; r++) {
-		if (!row_pins[r].port || !device_is_ready(row_pins[r].port)) {
+		if (!device_is_ready(row_pins[r].port)) {
 			LOG_ERR("Row pin %d no listo", r);
 			return false;
 		}
 		/* Filas: salida, reposo en HIGH (no activada) */
-		gpio_pin_configure(row_pins[r].port, row_pins[r].pin, GPIO_OUTPUT_HIGH);
+		gpio_pin_configure_dt(&row_pins[r], GPIO_OUTPUT_HIGH);
 	}
 
 	for (int c = 0; c < COLS; c++) {
-		if (!col_pins[c].port || !device_is_ready(col_pins[c].port)) {
+		if (!device_is_ready(col_pins[c].port)) {
 			LOG_ERR("Col pin %d no listo", c);
 			return false;
 		}
 		/* Columnas: entrada con pull-up interno */
-		gpio_pin_configure(col_pins[c].port, col_pins[c].pin, GPIO_INPUT | GPIO_PULL_UP);
+		gpio_pin_configure_dt(&col_pins[c], GPIO_INPUT | GPIO_PULL_UP);
 	}
 
 	return true;
@@ -80,21 +72,21 @@ bool matrix_keypad_scan(char *out_key)
 {
 	for (int r = 0; r < ROWS; r++) {
 		/* Activar fila: ponerla en LOW */
-		gpio_pin_set(row_pins[r].port, row_pins[r].pin, 0);
+		gpio_pin_set_dt(&row_pins[r], 0);
 		k_busy_wait(10);  /* 10 µs para estabilizar señal */
 
 		for (int c = 0; c < COLS; c++) {
-			int val = gpio_pin_get(col_pins[c].port, col_pins[c].pin);
+			int val = gpio_pin_get_dt(&col_pins[c]);
 			if (val == 0) {
 				/* Columna en LOW → tecla presionada */
-				gpio_pin_set(row_pins[r].port, row_pins[r].pin, 1);  /* restaurar fila */
+				gpio_pin_set_dt(&row_pins[r], 1);  /* restaurar fila */
 				*out_key = key_map[r][c];
 				return true;
 			}
 		}
 
 		/* Desactivar fila: volver a HIGH */
-		gpio_pin_set(row_pins[r].port, row_pins[r].pin, 1);
+		gpio_pin_set_dt(&row_pins[r], 1);
 	}
 
 	return false;

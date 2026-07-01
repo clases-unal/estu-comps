@@ -33,3 +33,10 @@ La comunicación con el ESP32 está implementada, pero el comportamiento del pro
 - Riesgo: fragilidad ante paquetes corruptos o interrupciones de línea.
 - Impacto: pérdida o retraso de telemetría.
 - Estado: pendiente de ampliar la robustez del protocolo.
+
+## 5. Error de compilación por nombres de labels de DeviceTree del keypad
+
+El fallo de compilación se produjo porque el código del driver del teclado intentó resolver los nodos del keypad con nombres de labels que no coincidían con los que Zephyr 4.4 expone en este proyecto. En concreto, se estaba usando `DT_NODELABEL(row0)`/`DT_NODELABEL(col0)` cuando el árbol generado de DeviceTree define `row_0`, `row_1`, `col_0` y `col_1` (y sus variantes de 2 y 3).
+
+- Causa: desalineación entre los labels usados en el código y los macros expuestos por el encabezado generado de Zephyr.
+- Resolución: se corrigieron las referencias en [src/drivers/matrix_keypad.c](src/drivers/matrix_keypad.c) para usar `DT_NODELABEL(row_0)` y `DT_NODELABEL(col_0)` (junto con sus equivalentes `row_1`/`col_1`, etc.) y se recompiló el firmware hasta obtener un build exitoso.
