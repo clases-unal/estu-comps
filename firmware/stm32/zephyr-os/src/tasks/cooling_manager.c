@@ -25,7 +25,7 @@
 LOG_MODULE_REGISTER(cooling_manager, LOG_LEVEL_INF);
 
 #define STACK_SIZE 1024
-#define THREAD_PRIORITY 5   /* TODO: ajustar según docs/02-firmware-architecture.md */
+#define THREAD_PRIORITY 2       /* Alta prioridad — ver docs/02-firmware-architecture.md */
 #define PERIOD_MS 1000
 
 /* Mapeo umbral -> duty cycle (%). TODO: ajustar estos valores contra el

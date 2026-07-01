@@ -13,7 +13,7 @@
 LOG_MODULE_REGISTER(temperature_manager, LOG_LEVEL_INF);
 
 #define STACK_SIZE 1024
-#define THREAD_PRIORITY 5
+#define THREAD_PRIORITY 2       /* Alta prioridad — ver docs/02-firmware-architecture.md */
 
 #define PERIOD_MS            500
 #define FILTER_WINDOW        5

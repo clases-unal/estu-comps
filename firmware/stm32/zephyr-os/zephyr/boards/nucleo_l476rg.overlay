@@ -1,20 +1,19 @@
 /*
- * nucleo_l476rg.overlay — Mapa de pines
+ * nucleo_l476rg.overlay — Mapa de pines del sistema
  *
- * NTC: PA0 = ADC1_IN5 (header Arduino "A0").
- * Elegido para no chocar con PA2/PA3 (USART2, usado por el ST-Link VCP / monitor
- * serial que ya probaste) ni con PB6/PB7 (I2C1, reservado para el OLED).
+ * CÓMO CAMBIAR UN PIN:
+ *   1. Elige el periférico STM32 que quieres usar (ej. TIM3, ADC1, USART1...)
+ *   2. Consulta la tabla "Alternate function mapping" del datasheet STM32L476
+ *      para saber qué AF number corresponde a ese periférico en el pin elegido.
+ *   3. Crea o modifica la entrada en &pinctrl con STM32_PINMUX('Puerto', pin, AF).
+ *   4. Aplica esa configuración al periférico correspondiente (&timers3, &adc1...).
+ *   Para GPIO simples (LEDs, pulsador) no se necesita pinctrl.
  *
- * IMPORTANTE — verificar contra tu cableado físico antes de confiar en lecturas:
- * Este overlay asume divisor de voltaje: VDD(3.3V) -- NTC -- [nodo ADC, PA0] -- R_fija(10k) -- GND
- * Si tu circuito tiene el NTC y la resistencia fija invertidos (R_fija arriba,
- * NTC abajo), la fórmula en ntc_sensor.c debe invertirse (ver TODO ahí).
- *
- * Ventilador: PA6 = TIM3_CH1 (header Arduino "D12"), frecuencia PWM 25kHz —
- * TODO: confirmar contra el datasheet de tu ventilador específico (2 vs 4 pines;
- * si es de 4 pines con línea PWM dedicada, 25kHz es estándar de la industria;
- * si controlas un motor DC simple vía MOSFET, la frecuencia es menos crítica
- * pero conviene mantenerla por encima del rango audible, >20kHz).
+ * PINES ASIGNADOS:
+ *   PA0  ANALOG  — ADC1 canal 5 — Lectura NTC
+ *                  Circuito: VDD --[NTC]--> PA0 --[R10k]--> GND
+ *   PA6  AF2     — TIM3_CH1    — PWM ventilador (D12 en header Arduino)
+ *   PC13 GPIO    — Input       — Pulsador usuario (definido en DTS base)
  */
 
 #include <zephyr/dt-bindings/adc/adc.h>
@@ -28,12 +27,34 @@
 	};
 };
 
+/* ── PINCTRL: definición de configuraciones de pines ─────────────────────── */
+&pinctrl {
+	ntc_adc_pins: ntc_adc_pins {
+		group1 {
+			/* PA0 en modo ANALOG para ADC1_IN5.
+			 * ANALOG no es una función alternativa numerada — desconecta
+			 * el pin del GPIO digital y lo entrega directamente al ADC. */
+			pinmux = <STM32_PINMUX('A', 0, ANALOG)>;
+		};
+	};
+
+	fan_pwm_pins: fan_pwm_pins {
+		group1 {
+			/* PA6 con AF2 = TIM3_CH1 (salida PWM del ventilador).
+			 * AF2 en PA6 es el único AF que activa TIM3_CH1 en este pin
+			 * — verificado contra datasheet STM32L476, tabla pág. 89. */
+			pinmux = <STM32_PINMUX('A', 6, AF2)>;
+		};
+	};
+};
+
+/* ── PERIFÉRICOS ─────────────────────────────────────────────────────────── */
 &adc1 {
+	status = "okay";
+	pinctrl-0 = <&ntc_adc_pins>;
+	pinctrl-names = "default";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "okay";
-	pinctrl-0 = <&adc1_in5_pa0>;
-	pinctrl-names = "default";
 
 	channel@5 {
 		reg = <5>;
@@ -49,18 +70,7 @@
 
 	pwm3: pwm {
 		status = "okay";
-		pinctrl-0 = <&tim3_ch1_pa6>;
+		pinctrl-0 = <&fan_pwm_pins>;
 		pinctrl-names = "default";
 	};
 };
-
-&pinctrl {
-	adc1_in5_pa0: adc1_in5_pa0 {
-		pinmux = <STM32_PINMUX('A', 0, ANALOG)>;
-	};
-
-	tim3_ch1_pa6: tim3_ch1_pa6 {
-		pinmux = <STM32_PINMUX('A', 6, AF2)>;
-	};
-};
-
