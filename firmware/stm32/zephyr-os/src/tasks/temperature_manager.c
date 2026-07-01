@@ -1,5 +1,25 @@
 /*
- * temperature_manager.c — Lectura ADC, conversión, filtrado, publicación a ControlState
+ * temperature_manager.c — Hilo responsable de leer la temperatura del NTC y
+ * publicar una medida usable en el estado compartido del sistema.
+ *
+ * Qué hace:
+ * - Inicializa el ADC/NTC al arrancar.
+ * - Lee la temperatura periódicamente desde el sensor.
+ * - Filtra las muestras para reducir ruido.
+ * - Publica la lectura en ControlState.current_temperature.
+ *
+ * Cómo lo hace:
+ * - Usa ntc_sensor_init() y ntc_sensor_read_celsius() para interactuar con el
+ *   hardware del sensor.
+ * - Aplica un promedio móvil simple sobre un buffer pequeño para suavizar la
+ *   lectura.
+ * - Cuando el sensor falla repetidamente, marca un error en TelemetryState para
+ *   que otros hilos reaccionen (por ejemplo, cooling_manager).
+ *
+ * Qué recibe / qué entrega:
+ * - Recibe información de hardware a través del ADC y del driver del NTC.
+ * - Entrega una temperatura filtrada y válida en ControlState.
+ * - También entrega señales de error a TelemetryState.
  */
 
 #include <zephyr/kernel.h>

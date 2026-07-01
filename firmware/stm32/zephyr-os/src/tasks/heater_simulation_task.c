@@ -1,19 +1,20 @@
 /*
- * heater_simulation_task.c — Keep-alive del proceso de calor simulado
+ * heater_simulation_task.c — Hilo que simula una fuente de calor externa.
  *
- * Propósito: simular una carga térmica externa que eleva la temperatura
- * del sistema de forma continua. En hardware real esto podría ser una
- * resistencia calefactora controlada; aquí se representa con una señal
- * de GPIO que pulsa periódicamente para indicar "calor activo".
+ * Qué hace:
+ * - Activa y desactiva un pin de GPIO con un patrón periódico para simular una
+ *   resistencia de calentamiento.
+ * - Solo emite calor cuando system_enabled está activo.
  *
- * Comportamiento:
- *  - Si system_enabled: emite un pulso en PA8 cada PULSE_PERIOD_MS.
- *    El duty cycle del pulso (PULSE_ON_MS) es fijo — simula calor constante.
- *  - Si system_enabled = false: mantiene el pin en LOW (calor detenido).
+ * Cómo lo hace:
+ * - Usa un pulso periódico con tiempo HIGH y tiempo LOW fijos.
+ * - El hilo consulta SystemState para verificar si el sistema está habilitado.
+ * - Si está deshabilitado, mantiene el GPIO en estado inactivo.
  *
- * El ventilador (cooling_manager) reacciona a la temperatura resultante —
- * el balance entre calor simulado y enfriamiento es lo que se observa en
- * la lectura del NTC.
+ * Qué recibe / qué entrega:
+ * - Recibe el estado de habilitación del sistema desde SystemState.
+ * - Entrega una señal de calor simulada al entorno físico (GPIO) y, vía la
+ *   temperatura del NTC, afecta al comportamiento del ventilador.
  */
 
 #include <zephyr/kernel.h>

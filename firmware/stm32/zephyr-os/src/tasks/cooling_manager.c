@@ -1,16 +1,25 @@
 /*
- * cooling_manager.c — Determinación de umbral térmico + control PWM del ventilador
+ * cooling_manager.c — Hilo de decisión térmica y control de ventilador.
  *
- * Responsabilidades:
- *  1. Comparar ControlState.current_temperature contra los 3 umbrales de ConfigState
- *     y publicar el threshold_code_t resultante en ControlState (ESTE módulo es
- *     dueño de esa decisión, no temperature_manager — ver docs/02-firmware-architecture.md).
- *  2. Mapear el umbral activo a un duty cycle de PWM y aplicarlo por hardware.
- *  3. Failsafe: si TelemetryState indica al NTC en falla (ERROR_FLAG_NTC_SENSOR),
- *    forzar el ventilador a 100% — más seguro fallar "frío" que dejar de enfriar
- *    sin saber la temperatura real. TODO: confirmar esta política de failsafe
- *    contra discussion.md / 04-design-decisions.md; es una decisión de diseño
- *    razonable pero no estaba explícitamente cerrada en los documentos fuente.
+ * Qué hace:
+ * - Lee la temperatura actual desde ControlState.
+ * - Compara esa temperatura contra los umbrales configurados en ConfigState.
+ * - Decide el nivel térmico activo (FRÍO, BAJO, MEDIO, ALTO).
+ * - Convierte ese nivel en un duty cycle y lo aplica al ventilador mediante PWM.
+ * - En caso de fallo del sensor NTC, entra en failsafe y fuerza el ventilador a
+ *   máxima velocidad.
+ *
+ * Cómo lo hace:
+ * - compute_threshold() convierte temperatura + umbrales en un threshold_code_t.
+ * - duty_for_threshold() transforma ese código en un porcentaje de trabajo.
+ * - apply_duty_cycle() escribe el valor de PWM en el pin configurado en el overlay.
+ *
+ * Qué recibe / qué entrega:
+ * - Recibe la temperatura medida y la configuración de umbrales desde los
+ *   estados compartidos.
+ * - Entrega el umbral activo y el duty cycle aplicable a ControlState para que
+ *   otros módulos puedan reflejarlo en pantalla o en telemetría.
+ * - Entrega la señal de PWM al ventilador real.
  */
 
 #include <zephyr/kernel.h>

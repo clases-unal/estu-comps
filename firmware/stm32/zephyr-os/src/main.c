@@ -1,24 +1,43 @@
 /*
- * main.c — Sistema de Control Térmico de Alta Disponibilidad
+ * main.c — Punto de entrada del firmware y orquestador del arranque.
  *
- * Responsabilidad de este archivo: ÚNICAMENTE inicializar las 5 estructuras de
- * estado global (y sus mutex) antes de que cualquier hilo intente usarlas.
+ * Este archivo no implementa lógica de control por sí solo. Su responsabilidad es
+ * preparar el entorno compartido del sistema antes de que otros hilos comiencen a
+ * trabajar. En otras palabras, main() crea las condiciones iniciales para que el
+ * resto del firmware pueda operar de forma coordinada.
  *
- * Los 7 hilos del sistema NO se crean aquí explícitamente: cada uno se registra
- * a sí mismo de forma estática con K_THREAD_DEFINE() en su propio archivo
- * (tasks/archivo.c) y arranca automáticamente en el boot de Zephyr. Esto significa que
- * main() termina su ejecución y los hilos siguen corriendo — es el comportamiento
- * normal y esperado, main() no necesita un while(1) propio.
+ * Flujo de arranque:
+ * 1. Se inicializan las estructuras de estado global (ControlState, ConfigState,
+ *    TelemetryState, SystemState y TransmissionState). Estas estructuras son el
+ *    "estado común" del sistema y se usan por múltiples hilos.
+ * 2. Se incrementa el contador de arranques, útil para depuración y registro.
+ * 3. El programa queda en un bucle de mantenimiento muy simple. El trabajo real
+ *    se ejecuta en hilos creados con K_THREAD_DEFINE() desde los archivos de
+ *    tasks/; main() no necesita hacer un while(1) con lógica de negocio.
  *
- * Orden de inicialización: los *_state_init() deben ejecutarse ANTES de que
- * cualquier hilo intente leer/escribir su estructura. Como K_THREAD_DEFINE crea
- * los hilos en boot (antes de main()), existe una condición de carrera teórica:
- * un hilo de alta prioridad podría ejecutar antes que main() llame a los _init().
+ * Relación entre main() y los hilos:
+ * - Cada hilo es un proceso autónomo que se encarga de una parte del sistema.
+ * - temperature_manager lee el sensor y publica temperatura.
+ * - cooling_manager decide el umbral y controla el ventilador.
+ * - heater_simulation_task simula carga térmica.
+ * - led_representation_manager refleja el estado en LEDs.
+ * - power_status_manager escucha el botón físico.
+ * - ui_keypad_task gestiona la pantalla/teclado.
+ * - esp32_comm_manager comunica con el ESP32 por UART.
  *
- * TODO (decisión pendiente de validar en implementación): evaluar si se requiere
- * usar K_THREAD_DEFINE con un delay de arranque (último parámetro) o cambiar a
- * k_thread_create() llamado explícitamente desde aquí, DESPUÉS de los _init(),
- * para eliminar esta condición de carrera de forma determinista.
+ * Por qué este archivo es tan corto:
+ * - El diseño del proyecto está orientado a concurrencia: cada tarea tiene su
+ *   propio hilo y su propio ciclo de trabajo.
+ * - main() solo debe dejar el sistema en un estado consistente antes de que los
+ *   hilos comiencen a correr.
+ *
+ * Importante:
+ * - Si se agregan nuevos hilos o se cambia el orden de inicialización, conviene
+ *   revisar que las estructuras de estado estén preparadas antes de que cualquier
+ *   hilo intente leer o escribir en ellas.
+ *
+ * TODO: evaluar si conviene mover la creación de hilos a un punto explícito desde
+ * main() para eliminar la condición de carrera teórica con K_THREAD_DEFINE().
  */
 
 #include <zephyr/kernel.h>
@@ -46,7 +65,10 @@ int main(void)
 
 	LOG_INF("Estado global inicializado. Hilos de tasks/ deberian estar activos.");
 
+	/* main() no implementa control ni supervisión de negocio; su única tarea en
+	 * este punto es mantener el sistema vivo mientras los hilos hacen el trabajo
+	 * real. */
 	while (1) {
-        k_sleep(K_MSEC(1000));
-    }
+		k_sleep(K_MSEC(1000));
+	}
 }

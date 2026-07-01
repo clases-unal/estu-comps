@@ -1,5 +1,37 @@
 /*
- * nucleo_l476rg.overlay — Mapa de pines optimizado y estandarizado
+ * nucleo_l476rg.overlay — Mapa de pines del hardware y configuración de periféricos.
+ *
+ * Este archivo es el punto central para decirle a Zephyr qué pines del STM32 se
+ * usan para cada función del proyecto. Si cambia el hardware, aquí se cambian las
+ * asociaciones entre funciones lógicas (sensor, ventilador, LEDs, botón, UART,
+ * display) y pines físicos del microcontrolador.
+ *
+ * Cómo leer este archivo:
+ * - La sección / { ... } define los recursos del sistema que el firmware consume
+ *   desde el árbol de dispositivos.
+ * - La sección &pinctrl define el modo eléctrico de algunos pines (ADC, PWM,
+ *   I2C, etc.).
+ * - Las secciones &adc1, &timers3, &usart1, &i2c1 hacen referencia a esos
+ *   recursos y los habilitan para las funciones concretas del proyecto.
+ *
+ * Cómo cambiar un pin GPIO:
+ * 1. Localice la definición del recurso que quiere mover (por ejemplo led0,
+ *    heater_pin, row_0, col_0, etc.).
+ * 2. Cambie la referencia del pin en la línea gpios = <&gpiob 0 GPIO_ACTIVE_HIGH>.
+ *    La forma general es: <&gpioX Y Z> donde:
+ *      - X = puerto del STM32 (a, b, c, ...)
+ *      - Y = número de pin dentro del puerto
+ *      - Z = nivel activo / polaridad
+ * 3. Si el pin se usa también en el pinctrl o en un periférico (PWM, ADC, I2C,
+ *    UART), verifique que el cambio sea compatible con esos modos.
+ * 4. Si el cambio afecta a un periférico físico, ajuste también la lógica del
+ *    driver en src/ que espera ese recurso.
+ *
+ * Ejemplo:
+ * - Para mover el LED0 de PB0 a PA5, cambiaría:
+ *     led0: led_0 { gpios = <&gpiob 0 GPIO_ACTIVE_HIGH>; };
+ *   por:
+ *     led0: led_0 { gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>; };
  */
 
 #include <zephyr/dt-bindings/adc/adc.h>

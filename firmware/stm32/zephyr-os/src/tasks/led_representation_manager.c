@@ -1,18 +1,20 @@
 /*
- * led_representation_manager.c — Control de 6 LEDs de estado
+ * led_representation_manager.c — Hilo visualizador del estado del sistema.
  *
- * Los 6 LEDs forman una barra acumulativa que representa el estado térmico:
+ * Qué hace:
+ * - Representa el nivel térmico actual mediante una barra de LEDs.
+ * - Indica si el sistema está habilitado o no mediante parpadeo global.
+ * - Destaca un error del sensor NTC encendiendo/parpadeando un LED especial.
  *
- *   THRESHOLD_COLD   (0): 0 LEDs encendidos
- *   THRESHOLD_LOW    (1): 2 LEDs encendidos (LED0, LED1)
- *   THRESHOLD_MEDIUM (2): 4 LEDs encendidos (LED0..LED3)
- *   THRESHOLD_HIGH   (3): 6 LEDs encendidos (LED0..LED5)
+ * Cómo lo hace:
+ * - Lee ControlState para saber el umbral activo.
+ * - Usa un mapeo fijo entre umbral y cantidad de LEDs encendidos.
+ * - Mantiene un tick interno para generar el parpadeo de los LEDs cuando el
+ *   sistema está deshabilitado o hay un error del NTC.
  *
- * Adicionalmente:
- *   - Si system_enabled = false: todos los LEDs parpadean a 2Hz
- *   - Si ERROR_FLAG_NTC_SENSOR activo: LED5 parpadea independientemente
- *
- * Pines: PB0, PB1, PB3, PB4, PB5, PB10 (ver overlay)
+ * Qué recibe / qué entrega:
+ * - Recibe el estado del sistema, la temperatura/umbral actual y flags de error.
+ * - Entrega una salida visual a través de GPIOs conectados a LEDs.
  */
 
 #include <zephyr/kernel.h>

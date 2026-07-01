@@ -1,12 +1,23 @@
 /*
- * esp32_comm_manager.c — Comunicación UART con el ESP32
+ * esp32_comm_manager.c — Hilo de comunicación con el ESP32 por UART.
  *
- * Protocolo: ver src/protocol/uart_packet.h
- *   Telemetría (0x01) cada 2s o si la temperatura cambia >0.5°C
- *   Configuración (0x02) solo cuando cambia (EVENT_CONFIG_UPDATED — pendiente)
- *   Diagnóstico (0x03) una sola vez al boot
+ * Qué hace:
+ * - Envía telemetría del sistema periódicamente.
+ * - Envía un paquete de diagnóstico en el arranque.
+ * - Usa el protocolo definido en src/protocol/uart_packet.h para encapsular los
+ *   datos y permitir que el ESP32 los interprete.
  *
- * UART: USART1 en PA9(TX)/PA10(RX) a 115200 bps (ver overlay)
+ * Cómo lo hace:
+ * - Cada cierto tiempo revisa si debe enviar un paquete nuevo.
+ * - Usa un timer por tiempo y un umbral de diferencia de temperatura para decidir
+ *   si la muestra es lo suficientemente distinta como para enviar.
+ * - Construye los paquetes con uart_packet_build() y los envía por uart_poll_out().
+ *
+ * Qué recibe / qué entrega:
+ * - Recibe el estado actual del sistema (temperatura, umbral, errores, etc.) desde
+ *   los estados compartidos.
+ * - Entrega paquetes serializados al ESP32, que puede usarlos para registro,
+ *   visualización o coordinación con otros módulos.
  */
 
 #include <zephyr/kernel.h>
