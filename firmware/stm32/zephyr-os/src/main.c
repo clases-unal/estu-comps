@@ -6,7 +6,7 @@
  *
  * Los 7 hilos del sistema NO se crean aquí explícitamente: cada uno se registra
  * a sí mismo de forma estática con K_THREAD_DEFINE() en su propio archivo
- * (tasks/*.c) y arranca automáticamente en el boot de Zephyr. Esto significa que
+ * (tasks/archivo.c) y arranca automáticamente en el boot de Zephyr. Esto significa que
  * main() termina su ejecución y los hilos siguen corriendo — es el comportamiento
  * normal y esperado, main() no necesita un while(1) propio.
  *
@@ -46,8 +46,7 @@ int main(void)
 
 	LOG_INF("Estado global inicializado. Hilos de tasks/ deberian estar activos.");
 
-	// Al final de tu main(), reemplaza el return 0; por esto:
-    while (1) {
+	while (1) {
         k_sleep(K_MSEC(1000));
     }
 }

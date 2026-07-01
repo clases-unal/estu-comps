@@ -32,13 +32,12 @@ LOG_MODULE_REGISTER(power_status_manager, LOG_LEVEL_INF);
 #define DEBOUNCE_MS    50
 #define LONG_PRESS_MS 3000
 
-/* PC13: botón de usuario de la Nucleo-L476RG. Para cambiar de pin:
- * - Modifica la letra ('C') y el número (13) aquí.
- * - No requiere cambios en el overlay para GPIO simples de entrada. */
-static const struct gpio_dt_spec button =
-	GPIO_DT_SPEC_GET(DT_NODELABEL(user_button), gpios);
-
+/* Se evita el uso del nodo DT del botón porque en esta toolchain provoca un
+ * enlace incompleto. Para que el sistema compile, se resuelve el GPIO vía
+ * dispositivo GPIOC de forma explícita y se conserva la lógica del debounce. */
+static const struct device *button_port;
 static struct gpio_callback button_cb;
+static uint32_t button_pin = 13U;
 
 /* Semáforo que la ISR señala cuando detecta un flanco válido */
 static K_SEM_DEFINE(button_sem, 0, 1);
@@ -60,27 +59,28 @@ static void button_isr(const struct device *dev, struct gpio_callback *cb,
 
 bool power_status_manager_init(void)
 {
-	if (!gpio_is_ready_dt(&button)) {
-		LOG_ERR("GPIO del pulsador no listo — verificar nodo user_button en overlay");
+	button_port = device_get_binding("GPIOC");
+	if (!button_port || !device_is_ready(button_port)) {
+		LOG_ERR("GPIO del pulsador no listo — dispositivo GPIOC no disponible");
 		return false;
 	}
 
-	int err = gpio_pin_configure_dt(&button, GPIO_INPUT);
+	int err = gpio_pin_configure(button_port, button_pin, GPIO_INPUT);
 	if (err != 0) {
-		LOG_ERR("gpio_pin_configure_dt fallo: %d", err);
+		LOG_ERR("gpio_pin_configure fallo: %d", err);
 		return false;
 	}
 
-	err = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+	err = gpio_pin_interrupt_configure(button_port, button_pin, GPIO_INT_EDGE_TO_ACTIVE);
 	if (err != 0) {
-		LOG_ERR("gpio_pin_interrupt_configure_dt fallo: %d", err);
+		LOG_ERR("gpio_pin_interrupt_configure fallo: %d", err);
 		return false;
 	}
 
-	gpio_init_callback(&button_cb, button_isr, BIT(button.pin));
-	gpio_add_callback(button.port, &button_cb);
+	gpio_init_callback(&button_cb, button_isr, BIT(button_pin));
+	gpio_add_callback(button_port, &button_cb);
 
-	LOG_INF("Pulsador listo en %s pin %d", button.port->name, button.pin);
+	LOG_INF("Pulsador listo en GPIOC pin %u", button_pin);
 	return true;
 }
 

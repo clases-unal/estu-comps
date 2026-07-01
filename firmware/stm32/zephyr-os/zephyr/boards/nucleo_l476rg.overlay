@@ -1,76 +1,120 @@
 /*
- * nucleo_l476rg.overlay — Mapa de pines del sistema
- *
- * CÓMO CAMBIAR UN PIN:
- *   1. Elige el periférico STM32 que quieres usar (ej. TIM3, ADC1, USART1...)
- *   2. Consulta la tabla "Alternate function mapping" del datasheet STM32L476
- *      para saber qué AF number corresponde a ese periférico en el pin elegido.
- *   3. Crea o modifica la entrada en &pinctrl con STM32_PINMUX('Puerto', pin, AF).
- *   4. Aplica esa configuración al periférico correspondiente (&timers3, &adc1...).
- *   Para GPIO simples (LEDs, pulsador) no se necesita pinctrl.
- *
- * PINES ASIGNADOS:
- *   PA0  ANALOG  — ADC1 canal 5 — Lectura NTC
- *                  Circuito: VDD --[NTC]--> PA0 --[R10k]--> GND
- *   PA6  AF2     — TIM3_CH1    — PWM ventilador (D12 en header Arduino)
- *   PC13 GPIO    — Input       — Pulsador usuario (definido en DTS base)
+ * nucleo_l476rg.overlay — Mapa de pines optimizado y estandarizado
  */
 
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/pinctrl/stm32-pinctrl.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
 	zephyr,user {
 		io-channels = <&adc1 5>;
-		pwms = <&pwm3 1 PWM_KHZ(25) PWM_POLARITY_NORMAL>;
+		pwms        = <&pwm3 1 PWM_KHZ(25) PWM_POLARITY_NORMAL>;
+	};
+
+	system_leds {
+		compatible = "gpio-leds";
+		led0: led_0 { gpios = <&gpiob 0  GPIO_ACTIVE_HIGH>; label = "LED0"; };
+		led1: led_1 { gpios = <&gpiob 1  GPIO_ACTIVE_HIGH>; label = "LED1"; };
+		led2: led_2 { gpios = <&gpiob 3  GPIO_ACTIVE_HIGH>; label = "LED2"; };
+		led3: led_3 { gpios = <&gpiob 4  GPIO_ACTIVE_HIGH>; label = "LED3"; };
+		led4: led_4 { gpios = <&gpiob 5  GPIO_ACTIVE_HIGH>; label = "LED4"; };
+		led5: led_5 { gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>; label = "LED5"; };
+	};
+
+	heater_ctrl {
+		compatible = "gpio-leds";
+		heater_pin: heater_0 { gpios = <&gpioa 8 GPIO_ACTIVE_HIGH>; label = "Heater sim"; };
+	};
+
+	/* Se reescribió este bloque para exponer cada pin del teclado como un nodo
+	 * independiente con etiqueta, que es lo que el driver espera al usar
+	 * DT_NODELABEL(row_0), DT_NODELABEL(col_0), etc. */
+	keypad_rows {
+		compatible = "gpio-keys";
+		row_0: row_0 { gpios = <&gpioc 0 GPIO_ACTIVE_LOW>; };
+		row_1: row_1 { gpios = <&gpioc 1 GPIO_ACTIVE_LOW>; };
+		row_2: row_2 { gpios = <&gpioc 2 GPIO_ACTIVE_LOW>; };
+		row_3: row_3 { gpios = <&gpioc 3 GPIO_ACTIVE_LOW>; };
+	};
+
+	keypad_cols {
+		compatible = "gpio-keys";
+		col_0: col_0 { gpios = <&gpioc 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+		col_1: col_1 { gpios = <&gpioc 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+		col_2: col_2 { gpios = <&gpioc 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+		col_3: col_3 { gpios = <&gpioc 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
 	};
 };
 
-/* ── PINCTRL: definición de configuraciones de pines ─────────────────────── */
+/* ── SECCIÓN PINCTRL ────────────────────────────────────────────────────── */
 &pinctrl {
 	ntc_adc_pins: ntc_adc_pins {
-		group1 {
-			/* PA0 en modo ANALOG para ADC1_IN5.
-			 * ANALOG no es una función alternativa numerada — desconecta
-			 * el pin del GPIO digital y lo entrega directamente al ADC. */
-			pinmux = <STM32_PINMUX('A', 0, ANALOG)>;
-		};
+		pinmux = <STM32_PINMUX('A', 0, ANALOG)>;
+	};
+	
+	fan_pwm_pins: fan_pwm_pins {
+		pinmux = <STM32_PINMUX('A', 6, AF2)>;
 	};
 
-	fan_pwm_pins: fan_pwm_pins {
-		group1 {
-			/* PA6 con AF2 = TIM3_CH1 (salida PWM del ventilador).
-			 * AF2 en PA6 es el único AF que activa TIM3_CH1 en este pin
-			 * — verificado contra datasheet STM32L476, tabla pág. 89. */
-			pinmux = <STM32_PINMUX('A', 6, AF2)>;
-		};
+	/* ¡NUEVO FORMATO!
+	Cada pin de I2C es su propio nodo independiente */
+	i2c1_scl_pb6: i2c1_scl_pb6 {
+		pinmux = <STM32_PINMUX('B', 6, AF4)>;
+		bias-pull-up;
+		drive-open-drain;
+	};
+	
+	i2c1_sda_pb7: i2c1_sda_pb7 {
+		pinmux = <STM32_PINMUX('B', 7, AF4)>;
+		bias-pull-up;
+		drive-open-drain;
 	};
 };
 
-/* ── PERIFÉRICOS ─────────────────────────────────────────────────────────── */
+/* ── PERIFÉRICOS ────────────────────────────────────────────────────────── */
+
 &adc1 {
-	status = "okay";
 	pinctrl-0 = <&ntc_adc_pins>;
-	pinctrl-names = "default";
 	#address-cells = <1>;
 	#size-cells = <0>;
 
 	channel@5 {
 		reg = <5>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,gain             = "ADC_GAIN_1";
+		zephyr,reference        = "ADC_REF_INTERNAL";
 		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
+		zephyr,resolution       = <12>;
 	};
 };
 
 &timers3 {
-	status = "okay";
-
 	pwm3: pwm {
-		status = "okay";
 		pinctrl-0 = <&fan_pwm_pins>;
-		pinctrl-names = "default";
+	};
+};
+
+&usart1 {
+	/* Los pines de USART1 ya están configurados en el base. No tocamos nada. */
+};
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_scl_pb6 &i2c1_sda_pb7>;
+	status = "okay"; /* Asegura que el bus esté activo */
+	
+	ssd1306: ssd1306@3c {
+		compatible        = "solomon,ssd1306fb";
+		reg               = <0x3c>;
+		width             = <128>;
+		height            = <64>;
+		segment-offset    = <0>;
+		page-offset       = <0>;
+		display-offset    = <0>;
+		multiplex-ratio   = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep        = <0x22>;
+		status            = "okay"; /* <-- AGREGA ESTA LÍNEA AQUÍ */
 	};
 };

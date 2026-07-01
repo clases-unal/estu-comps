@@ -22,6 +22,7 @@
  */
 
 #include <math.h>
+#include <zephyr/kernel.h>
 #include <zephyr/drivers/adc.h>
 #include <zephyr/logging/log.h>
 #include "ntc_sensor.h"
@@ -56,6 +57,9 @@ bool ntc_sensor_init(void)
 		adc_is_ready_dt(&adc_channel));
 
 	if (!adc_is_ready_dt(&adc_channel)) {
+		/* Se reemplazó el uso de LOG_PANIC por LOG_ERR para alinearlo con la API
+		 * de logging disponible en esta versión de Zephyr y evitar el fallo de
+		 * compilación. */
 		LOG_ERR("ADC device NO LISTO. Verificar overlay y CONFIG_ADC=y en prj.conf");
 		k_msleep(100);
 		return false;
