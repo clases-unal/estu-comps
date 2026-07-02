@@ -42,7 +42,7 @@
 / {
 	zephyr,user {
 		io-channels = <&adc1 5>;
-		pwms        = <&pwm3 1 PWM_KHZ(25) PWM_POLARITY_NORMAL>;
+		pwms        = <&pwm3 1 PWM_KHZ(4) PWM_POLARITY_NORMAL>;
 	};
 
 	system_leds {
@@ -129,10 +129,19 @@
 	};
 };
 
+
+&spi1 {
+    status = "disabled";
+};
+
 &timers3 {
-	pwm3: pwm {
-		pinctrl-0 = <&fan_pwm_pins>;
-	};
+    status = "okay";
+    st,prescaler = <0>;        /* ← elimina el prescaler del board DTS */
+    pwm3: pwm {
+        status = "okay";
+        pinctrl-0     = <&fan_pwm_pins>;
+        pinctrl-names = "default";
+    };
 };
 
 &usart1 {
